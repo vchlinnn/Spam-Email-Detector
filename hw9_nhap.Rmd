@@ -8,22 +8,222 @@ date: "2024-04-22"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+### The Data
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+The data set `spam_train` can be found in the hw_9 repo and can be loaded by running the following code.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r message =F}
+spam_train<-read.csv("spam_train.csv")
+spam_train$spam <- as.factor(spam_train$spam)
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+str(spam_train)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+- `spam` is your response variable (coded as a factor variable, where 1 = spam and 0 = not spam) and should not be included as a predictor.
+
+
+
+
+## Components
+
+
+### Data Exploration
+
+In this section, you should perform preliminary data exploration and analysis. This data set is a bit too large to do a full investigation of each variable, so select several variables you think may be useful (at least 6 for visualization purposes, but you may want to use many more for the actual model building). Create visualizations for each variable individually, along with visualizations showing the relationship between the variable and the response. Compute relevant summary statistics for each of your variables.
+
+******************************************
+
+```{r}
+# Convert spam to a numerical variable to compute correlation matrix 
+spam_train$spam <- as.numeric(spam_train$spam)
+str(spam_train)
+```
+
+```{r}
+# Compute correlation matrix and filter the predictors that have the strongest correlation
+library(dplyr)
+correlation <- cor(spam_train[,-58], spam_train$spam)
+cor_dataframe <- data.frame(variable = rownames (correlation), cor = as.numeric(correlation))
+cor_dataframe %>% filter(abs(cor) > 0.25)
+```
+```{r}
+correlation
+```
+
+```{r}
+cor(spam_train[c("word_freq_our", "word_freq_over", "word_freq_remove", "word_freq_you", "word_freq_000", 
+                 "char_freq_..3", "capital_run_length_longest", "word_freq_hp", "word_freq_receive", "word_freq_business",    "word_freq_hp.1")])
+```
+
+word_freq_hp and word_freq_hp.1 
+
+
+```{r}
+# Interesting pattern: word_freq_hp and word_freq_business make a good pair 
+
+# word_freq_hp is imbalanced towards spam 1 --> good 
+ggplot(data=spam_train) + geom_boxplot(mapping= aes(x=spam, y=word_freq_hp))
+
+# word_freq_business is imbalanced towards spam 2 --> good 
+ggplot(data=spam_train) + geom_boxplot(mapping= aes(x=spam, y=word_freq_business))
+
+# combine both 
+ggplot(spam_train, aes(x=word_freq_hp, y=word_freq_business)) +
+geom_point(aes(color=spam))
+```
+
+```{r}
+# capital_run_length_longest fair 
+ggplot(data=spam_train) + geom_boxplot(mapping= aes(x=spam, y=capital_run_length_longest))
+```
+
+```{r}
+# word_freq_000 fair enough 
+ggplot(data=spam_train) + geom_boxplot(mapping= aes(x=spam, y=word_freq_000))
+```
+
+ggplot(Auto, aes(x=weight, y=horsepower)) +
+geom_point(aes(color=high_mpg))
+
+```{r}
+#word_freq_you: fair enough 
+ggplot(data=spam_train) + geom_boxplot(mapping= aes(x=spam, y=word_freq_you))
+```
+```{r}
+# Too skewed and the levels of spam are divided equally so we cannot tell 
+
+# word_freq_our is too skewed 
+ggplot(spam_train, aes(x = word_freq_our)) +
+  geom_histogram(binwidth = 1) +
+  labs(x = "word_freq_our", y = "Frequency", title = "Histogram of word_freq_our") +
+  theme_minimal()
+
+# char_freq_..3 is too skewed 
+ggplot(spam_train, aes(x = char_freq_..3)) +
+  geom_histogram(binwidth = 1) +
+  labs(x = "word_freq_our", y = "Frequency", title = "Histogram of word_freq_our") +
+  theme_minimal()
+
+# So is word_freq_receive
+ggplot(spam_train, aes(x = word_freq_receive)) +
+  geom_histogram(binwidth = 1) +
+  labs(x = "word_freq_our", y = "Frequency", title = "Histogram of word_freq_our") +
+  theme_minimal()
+```
+
+
+
+******************************************
+
+### Model Building
+
+In this section, you should build a series of models (at least 5, but more is probably better) of varying complexity and that use a variety of the tools we have studied thus far. Explain why you choose to implement various features in each model. Here are some suggestions:
+
+  - Build at least one model using a large number of variables
+  
+  - Build at least one model using a small number of variables
+  
+  - Build at least one highly flexible model
+  
+  - Build at least one highly rigid model
+  
+  - Build at least one model that has a parameter that can be tuned using cross-validation
+  
+  - Consider models using a variety of classification threshold (i.e. the value of $c$ in the rule "Predict $Y = 1$ if $P(Y = 1 | X ) > c$")
+
+
+
+
+******************************************
+
+
+
+
+
+******************************************
+
+### Model Selection
+
+In this section, evaluate model performance using a variety of metrics. Which models seemed to perform better or worse? Why? Here are some suggestions:
+
+  - Use cross-validation as well as training + test sets to evaluate performance
+  
+  - After assessing performance, revisit models and make small changes
+  
+  - Consider the structure of the predictors. What relationships do these predictors have? What types of models will tend to work best for these relationships?
+  
+  - Consider modifications that can be made to increase either sensitivity or specificity.
+
+******************************************
+
+
+
+
+
+******************************************
+
+### Your model
+
+**Goals**: Identify the three models you feel will best satisfy the following goals:
+
+
+1. The model with the highest overall accuracy (at least 90%)
+
+2. The model with the highest specificity while maintaining reasonable accuracy (specificity at least 95%, accuracy at least 80%)
+
+3. The model with the highest sensitivity while maintaining reasonable accuracy (sensitivity at least 95%, accuracy at least 80%)
+
+
+Load the evaluation data using the following code:
+
+```{r}
+spam_eval <-read.csv("spam_eval.csv")
+```
+
+
+
+Use your 3 models to make 3 sets of predictions on `spam_eval`:
+
+1. Make predictions using the model that best achieves goal 1. Save your predictions as the data frame called `FirstName_LastName_goal1`
+
+2. Make predictions using the model that best achieves goal 2. Save your predictions as the data frame called `FirstName_LastName_goal2`
+
+3. Make predictions using the model that best achieves goal 3. Save your predictions as the data frame called `FirstName_LastName_goal3`
+
+*Be sure to replace `FirstName_LastName` with your actual first and last names in the above data frame names.*
+
+******************************************
+
+
+
+
+
+******************************************
+
+
+
+
+Once you have made predictions, remove the # symbol from the following lines of code, and replace `FirstName_LastName` with your actual first and last name. **Do not delete the letters .csv at the end of the file name inside the quotations.** Then run the code. This will save your data frames as .csv files in your repo. 
+
+```{r}
+# write.csv(FirstName_LastName_goal1, "FirstName_LastName_goal1.csv", row_names = F)
+# write.csv(FirstName_LastName_goal2, "FirstName_LastName_goal2.csv", row_names = F)
+# write.csv(FirstName_LastName_goal3, "FirstName_LastName_goal3.csv", row_names = F)
+```
+
+*Be sure you commit and push these .csv files to the Github repo in addition to your .Rmd, as they are the predictions I will use to evaluate your model.*
+
+### Conclusions
+
+Discuss some limitations of your methods and your model. What are some ways you could improve your model if you had more **time**? Identify one variable **not** in the data set you feel could be an important predictor of `spam`. How confident are you in the accuracy of your model? 
+
+******************************************
+
+
+
+
+
+******************************************
