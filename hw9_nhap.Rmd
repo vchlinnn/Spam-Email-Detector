@@ -60,9 +60,9 @@ cor(spam_train[c("word_freq_our", "word_freq_over", "word_freq_remove", "word_fr
 
 word_freq_hp and word_freq_hp.1 
 
-
 ```{r}
 # Interesting pattern: word_freq_hp and word_freq_business make a good pair 
+# (Notice that they have opposite correlation)
 
 # word_freq_hp is imbalanced towards spam 1 --> good 
 ggplot(data=spam_train) + geom_boxplot(mapping= aes(x=spam, y=word_freq_hp))
@@ -70,8 +70,13 @@ ggplot(data=spam_train) + geom_boxplot(mapping= aes(x=spam, y=word_freq_hp))
 # word_freq_business is imbalanced towards spam 2 --> good 
 ggplot(data=spam_train) + geom_boxplot(mapping= aes(x=spam, y=word_freq_business))
 
-# combine both 
+
+# combine both
 ggplot(spam_train, aes(x=word_freq_hp, y=word_freq_business)) +
+geom_point(aes(color=spam))
+```
+```{r}
+ggplot(spam_train, aes(x=word_freq_hp.1, y=word_freq_receive)) +
 geom_point(aes(color=spam))
 ```
 
@@ -106,12 +111,6 @@ ggplot(spam_train, aes(x = char_freq_..3)) +
   geom_histogram(binwidth = 1) +
   labs(x = "word_freq_our", y = "Frequency", title = "Histogram of word_freq_our") +
   theme_minimal()
-
-# So is word_freq_receive
-ggplot(spam_train, aes(x = word_freq_receive)) +
-  geom_histogram(binwidth = 1) +
-  labs(x = "word_freq_our", y = "Frequency", title = "Histogram of word_freq_our") +
-  theme_minimal()
 ```
 
 
@@ -139,8 +138,91 @@ In this section, you should build a series of models (at least 5, but more is pr
 
 ******************************************
 
+We can see the group of 4 predictors with opposite correlation. I think that KNN might work well with this because they are separate positions. 
 
+```{r}
+library(ISLR)
+library(tidyr)
+library(rsample)
+library(purrr)
+# Create 10 folds for cross validation 
+set.seed(200)
+my_cv <- vfold_cv(spam_train, v = 10)
 
+# Fit KNN on the training data to predict high_mpg
+library(kknn)
+spam_knn <- function(k, split){
+  model <- kknn(spam ~ word_freq_hp.1 + word_freq_hp + word_freq_receive + word_freq_business, 
+                train = analysis(split), 
+                test = assessment(split),
+                distance = 1,
+                k = k, 
+                kernel = "rectangular")
+  test = assessment(split)
+  my_preds <- model$fitted.values
+  my_obs <- test$spam
+  accuracy <- sum(my_obs==my_preds)/nrow(test)
+  error <- 1 - accuracy
+  error
+}
+
+# Use cross-validation on the training set to select the optimal value of k
+library(purrr)
+my_error_mat <- as.data.frame(matrix(NA, ncol = 30, nrow = 10))
+for (i in 1:30){
+my_error_mat[,i] <- map_dbl(my_cv$splits, spam_knn, k = i)
+}
+
+# Edit column names 
+colnames(my_error_mat) <- paste("knn",1:30)
+
+# Create plot
+knn_error <- map_dbl(my_error_mat, mean)
+data.frame(k=1:30, knn_error) %>% ggplot(aes(x=k, y=knn_error)) + geom_line() + geom_point()
+
+```
+I would go with k = 5.
+
+```{r}
+# My first model
+
+spam_knn_mod1 <- function(k, split){
+  model <- kknn(spam ~ word_freq_hp.1 + word_freq_hp + word_freq_receive + word_freq_business, 
+                train = analysis(split), 
+                test = assessment(split),
+                distance = 1,
+                k = 5, 
+                kernel = "rectangular")
+  test = assessment(split)
+  my_preds <- model$fitted.values
+  my_obs <- test$spam
+  accuracy <- sum(my_obs==my_preds)/nrow(test)
+  error <- 1 - accuracy
+  error
+}
+```
+
+```{r}
+# Fit a logistic regression model on the training data to predict `high_mpg`
+spam_logistic_mod <- function(split){
+  model <- glm(spam ~ word_freq_hp.1 + word_freq_hp + word_freq_receive + word_freq_business, data = analysis(split), family = "binomial")
+  test = assessment(split)
+  my_probs <- predict(model, newdata = test, type = "response")
+  my_preds <- ifelse(my_probs > 0.5, "1","0")
+  my_obs <- test$spam
+  accuracy <- sum(my_obs == my_preds)/nrow(test)
+  error <- 1 - accuracy
+  error
+}
+
+my_error_mat <- as.data.frame(matrix(NA, ncol = 1, nrow = 10))
+my_error_mat[,1] <- map_dbl(my_cv$splits, spam_logistic_mod)
+
+```
+
+```{r}
+spam_logistic_mod(my_cv$splits[[1]])
+```
 
 
 ******************************************
