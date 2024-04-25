@@ -38,14 +38,14 @@ In this section, you should perform preliminary data exploration and analysis. T
 
 ```{r}
 # Convert spam to a numerical variable to compute correlation matrix 
-spam_train$spam <- as.numeric(spam_train$spam)
+spam_train$spam_num <- ifelse(spam_train$spam=="1", 1, 0)
 str(spam_train)
 ```
 
 ```{r}
 # Compute correlation matrix and filter the predictors that have the strongest correlation
 library(dplyr)
-correlation <- cor(spam_train[,-58], spam_train$spam)
+correlation <- cor(spam_train[,-58], spam_train$spam_num)
 cor_dataframe <- data.frame(variable = rownames (correlation), cor = as.numeric(correlation))
 cor_dataframe %>% filter(abs(cor) > 0.25)
 ```
@@ -53,9 +53,15 @@ cor_dataframe %>% filter(abs(cor) > 0.25)
 correlation
 ```
 
+
 ```{r}
 cor(spam_train[c("word_freq_our", "word_freq_over", "word_freq_remove", "word_freq_you", "word_freq_000", 
                  "char_freq_..3", "capital_run_length_longest", "word_freq_hp", "word_freq_receive", "word_freq_business",    "word_freq_hp.1")])
+```
+
+```{r}
+spam_train$spam <- as.factor(spam_train$spam)
+spam_train$spam <- factor(spam_train$spam,levels = c("1","0"))
 ```
 
 word_freq_hp and word_freq_hp.1 
@@ -205,19 +211,19 @@ spam_knn_mod1 <- function(k, split){
 ```{r}
 # Fit a logistic regression model on the training data to predict `high_mpg`
 spam_logistic_mod <- function(split){
-  model <- glm(spam ~ word_freq_hp.1 + word_freq_hp + word_freq_receive + word_freq_business, data = analysis(split), family = "binomial")
+  model <- glm(spam ~ word_freq_your + word_freq_000 + word_freq_receive + word_freq_business + capital_run_length_longest, data = analysis(split), family = "binomial")
   test = assessment(split)
   my_probs <- predict(model, newdata = test, type = "response")
-  my_preds <- ifelse(my_probs > 0.5, "1","0")
+  my_preds <- ifelse(my_probs > 0.5, "0","1")
   my_obs <- test$spam
   accuracy <- sum(my_obs == my_preds)/nrow(test)
   error <- 1 - accuracy
   error
 }
-
+  
 my_error_mat <- as.data.frame(matrix(NA, ncol = 1, nrow = 10))
 my_error_mat[,1] <- map_dbl(my_cv$splits, spam_logistic_mod)
-
+mean(my_error_mat[,1])
 ```
 
 ```{r}
