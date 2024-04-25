@@ -191,8 +191,7 @@ I would go with k = 5.
 
 ```{r}
 # My first model
-
-spam_knn_mod1 <- function(k, split){
+spam_knn_mod1 <- function(split){
   model <- kknn(spam ~ word_freq_hp.1 + word_freq_hp + word_freq_receive + word_freq_business, 
                 train = analysis(split), 
                 test = assessment(split),
@@ -206,6 +205,11 @@ spam_knn_mod1 <- function(k, split){
   error <- 1 - accuracy
   error
 }
+
+my_error_mat <- as.data.frame(matrix(NA, ncol = 1, nrow = 10))
+my_error_mat[,1] <- map_dbl(my_cv$splits, spam_knn_mod1)
+mean(my_error_mat[,1])
+
 ```
 
 ```{r}
@@ -225,10 +229,59 @@ my_error_mat <- as.data.frame(matrix(NA, ncol = 1, nrow = 10))
 my_error_mat[,1] <- map_dbl(my_cv$splits, spam_logistic_mod)
 mean(my_error_mat[,1])
 ```
-
 ```{r}
-spam_logistic_mod(my_cv$splits[[1]])
+library(modelr)  # for analysis and assessment
+library(yardstick)  # for metric calculation
+library(purrr)  # for map functions
+library(dplyr)  # for data manipulation
+
+# Update the function to properly handle metric calculation
+spam_logistic_mod <- function(split) {
+  model <- glm(spam ~ word_freq_your + word_freq_000 + word_freq_receive + 
+               word_freq_business + capital_run_length_longest, 
+               data = analysis(split), family = "binomial")
+  
+  test <- assessment(split)
+  my_probs <- predict(model, newdata = test, type = "response")
+  my_preds <- ifelse(my_probs > 0.5, "1", "0")
+  
+  # Ensure predictions and observations are factors with correct levels
+  my_obs <- factor(test$spam, levels = c("0", "1"))
+  my_preds <- factor(my_preds, levels = c("0", "1"))
+
+  # Prepare data frame for conf_mat()
+  results <- data.frame(truth = my_obs, estimate = my_preds)
+
+  # Calculate metrics directly ensuring only single values are used
+  conf_matrix <- conf_mat(results, truth = truth, estimate = estimate)
+  matrix_counts <- conf_matrix$table
+  
+  # Calculate metrics
+  tp <- matrix_counts[1, 1]
+  fp <- matrix_counts[1, 2]
+  fn <- matrix_counts[2, 1]
+  tn <- matrix_counts[2, 2]
+  
+  # Create a named vector of metrics
+  accuracy <- (tp + tn) / sum(matrix_counts)
+  sensitivity <- tp / (tp + fn)
+  specificity <- tn / (tn + fp)
+
+  # Return a named vector with all metrics
+  c(Accuracy = 1 - accuracy, Sensitivity = 1 - as.numeric(sensitivity), Specificity = 1 - as.numeric(specificity))
+}
+
+# Use map_dfr to apply the function to each split and get a data frame
+my_error_mat <- map_dfr(my_cv$splits, spam_logistic_mod)
+
+# Calculate the mean for each column
+mean_metrics <- colMeans(my_error_mat)
+mean_metrics
 ```
+
+
+
+
 
 
 ******************************************
