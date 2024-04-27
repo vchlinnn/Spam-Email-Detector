@@ -393,15 +393,22 @@ mean_metrics
 ```
 ```{r}
 # only -word_freq_will 0.9336359   0.9513631   0.9051629
-
+# -spam_num -word_freq_will -word_freq_parts -word_freq_address -word_freq_3d -word_freq_mail -word_freq_people 
+# 0.9314620   0.9585793   0.8877579
+# -spam_num -word_freq_will -word_freq_parts -word_freq_address -word_freq_3d -word_freq_mail -word_freq_people -word_freq_report -word_freq_addresses
+# ntree 20 mtry 10 
+# 0.9390946   0.9587656   0.9063168
+# -spam_num -word_freq_parts -word_freq_will -word_freq_table -char_freq_..5 -word_freq_report
+# ntree 20 mtry 10
+# 0.9379838   0.9611018   0.9016343
 
 set.seed(12)
 library(randomForest)
 
 spam_rforest_mod <- function(split) {
-  model <- randomForest(spam ~ .-spam_num -word_freq_will -word_freq_parts,
+  model <- randomForest(spam ~ .-spam_num -word_freq_table -word_freq_report -word_freq_3d -word_freq_address,
                  data = analysis(split), 
-                 ntree = 10, mtry = 5)
+                 ntree = 20, mtry = 10)
   test <- assessment(split)
   my_preds <- predict(model, test, type = "class")
   my_obs <- factor(test$spam, levels = c("0", "1"))
