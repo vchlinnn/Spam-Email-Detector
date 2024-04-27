@@ -37,6 +37,11 @@ In this section, you should perform preliminary data exploration and analysis. T
 ******************************************
 
 ```{r}
+library(GGally)
+ggpairs(spam_train)
+```
+
+```{r}
 # Convert spam to a numerical variable to compute correlation matrix 
 spam_train$spam_num <- ifelse(spam_train$spam=="1", 1, 0)
 str(spam_train)
@@ -67,6 +72,7 @@ spam_train$spam <- factor(spam_train$spam,levels = c("1","0"))
 word_freq_hp and word_freq_hp.1 
 
 ```{r}
+library(ggplot2)
 # Interesting pattern: word_freq_hp and word_freq_business make a good pair 
 # (Notice that they have opposite correlation)
 
@@ -151,6 +157,9 @@ library(ISLR)
 library(tidyr)
 library(rsample)
 library(purrr)
+library(modelr)  
+library(yardstick)  
+library(dplyr)
 # Create 10 folds for cross validation 
 set.seed(200)
 my_cv <- vfold_cv(spam_train, v = 10)
@@ -228,17 +237,42 @@ my_error_mat[,1] <- map_dbl(my_cv$splits, spam_logistic_mod)
 mean(my_error_mat[,1])
 ```
 ```{r}
-library(modelr)  
-library(yardstick)  
-library(purrr)  
-library(dplyr) 
+spam_logistic_mod <- function(split) {
+  model <- glm(spam ~ .-spam_num, 
+               data = analysis(split), family = "binomial")
+  test <- assessment(split)
+  my_probs <- predict(model, newdata = test, type = "response")
+  my_preds <- ifelse(my_probs > 0.9, "1", "0")
+  my_obs <- factor(test$spam, levels = c("0", "1"))
+  my_preds <- factor(my_preds, levels = c("0", "1"))
+  results <- data.frame(truth = my_obs, estimate = my_preds)
+  conf_matrix <- conf_mat(results, truth = truth, estimate = estimate)
+  matrix_counts <- conf_matrix$table
+  tp <- matrix_counts[1, 1]
+  fp <- matrix_counts[1, 2]
+  fn <- matrix_counts[2, 1]
+  tn <- matrix_counts[2, 2]
+  accuracy <- (tp + tn) / sum(matrix_counts)
+  sensitivity <- tp / (tp + fn)
+  specificity <- tn / (tn + fp)
+  c(Accuracy = 1 - accuracy, Sensitivity = 1 - as.numeric(sensitivity), Specificity = 1 - as.numeric(specificity))
+}
 
+# Use map_dfr to apply the function to each split and get a data frame
+my_error_mat <- map_dfr(my_cv$splits, spam_logistic_mod)
+
+# Calculate the mean for each column
+mean_metrics <- colMeans(my_error_mat)
+mean_metrics
+```
+
+```{r}
 spam_logistic_mod <- function(split) {
   model <- glm(spam ~ word_freq_our + word_freq_over + word_freq_remove + word_freq_you + word_freq_000+ char_freq_..3 + capital_run_length_longest+word_freq_hp+word_freq_receive+word_freq_business+word_freq_hp.1, 
                data = analysis(split), family = "binomial")
   test <- assessment(split)
   my_probs <- predict(model, newdata = test, type = "response")
-  my_preds <- ifelse(my_probs > 0.5, "1", "0")
+  my_preds <- ifelse(my_probs > 0.3, "1", "0")
   my_obs <- factor(test$spam, levels = c("0", "1"))
   my_preds <- factor(my_preds, levels = c("0", "1"))
   results <- data.frame(truth = my_obs, estimate = my_preds)
@@ -262,7 +296,6 @@ mean_metrics <- colMeans(my_error_mat)
 mean_metrics
 ```
 ```{r}
-
 spam_knn_mod1 <- function(split){
   model <- kknn(spam ~ word_freq_hp.1 + word_freq_hp + word_freq_receive + word_freq_business, 
                 train = analysis(split), 
@@ -289,6 +322,108 @@ spam_knn_mod1 <- function(split){
 
 # Use map_dfr to apply the function to each split and get a data frame
 my_error_mat <- map_dfr(my_cv$splits, spam_knn_mod1)
+
+# Calculate the mean for each column
+mean_metrics <- colMeans(my_error_mat)
+mean_metrics
+```
+```{r}
+library(e1071)
+
+spam_naive_mod <- function(split) {
+  model <- naiveBayes(spam ~ .-spam_num, 
+               data = analysis(split))
+  test <- assessment(split)
+  my_preds <- predict(model, test)
+  my_probs <- predict(model, test, type = "raw")
+  my_obs <- factor(test$spam, levels = c("0", "1"))
+  my_preds <- factor(my_preds, levels = c("0", "1"))
+  results <- data.frame(truth = my_obs, estimate = my_preds)
+  conf_matrix <- conf_mat(results, truth = truth, estimate = estimate)
+  matrix_counts <- conf_matrix$table
+  tp <- matrix_counts[1, 1]
+  fp <- matrix_counts[1, 2]
+  fn <- matrix_counts[2, 1]
+  tn <- matrix_counts[2, 2]
+  accuracy <- (tp + tn) / sum(matrix_counts)
+  sensitivity <- tp / (tp + fn)
+  specificity <- tn / (tn + fp)
+  c(Accuracy = accuracy, Sensitivity = as.numeric(sensitivity), Specificity = as.numeric(specificity))
+}
+
+# Use map_dfr to apply the function to each split and get a data frame
+my_error_mat <- map_dfr(my_cv$splits, spam_naive_mod)
+
+# Calculate the mean for each column
+mean_metrics <- colMeans(my_error_mat)
+mean_metrics
+```
+```{r}
+set.seed(1)
+library(rpart)
+
+spam_tree_mod <- function(split) {
+  model <- rpart(spam ~ .-spam_num,
+                 data = analysis(split))
+  test <- assessment(split)
+  my_obs <- factor(test$spam, levels = c("0", "1"))
+  my_preds <- predict(model, test, type = "class")
+  my_preds <- factor(my_preds, levels = c("0", "1"))
+  my_probs <- predict(model, test, type = "prob")[,"spam"]
+  results <- data.frame(probs = my_probs,
+                        truth = my_obs,
+                        estimate = my_preds)
+  conf_matrix <- conf_mat(results, truth = my_obs, estimate = my_preds)
+  matrix_counts <- conf_matrix$table
+  tp <- matrix_counts[1, 1]
+  fp <- matrix_counts[1, 2]
+  fn <- matrix_counts[2, 1]
+  tn <- matrix_counts[2, 2]
+  accuracy <- (tp + tn) / sum(matrix_counts)
+  sensitivity <- tp / (tp + fn)
+  specificity <- tn / (tn + fp)
+  c(Accuracy = accuracy, Sensitivity = as.numeric(sensitivity), Specificity = as.numeric(specificity))
+}
+
+# Use map_dfr to apply the function to each split and get a data frame
+my_error_mat <- map_dfr(my_cv$splits, spam_tree_mod)
+
+# Calculate the mean for each column
+mean_metrics <- colMeans(my_error_mat)
+mean_metrics
+```
+```{r}
+set.seed(12)
+library(randomForest)
+
+spam_rforest_mod <- function(split) {
+  model <- rpart(spam ~ .-spam_num,
+                 data = analysis(split), 
+                 ntree = 10, mtry = 5)
+  test <- assessment(split)
+  my_preds <- predict(model, test, type = "class")
+  results <- data.frame(obs = my_pdxTrees_test$Carbon_Sequestration_lb, preds = my_preds)
+  my_obs <- factor(test$spam, levels = c("0", "1"))
+  my_preds <- predict(model, test, type = "class")
+  my_preds <- factor(my_preds, levels = c("0", "1"))
+  my_probs <- predict(model, test, type = "prob")[,"spam"]
+  results <- data.frame(probs = my_probs,
+                        truth = my_obs,
+                        estimate = my_preds)
+  conf_matrix <- conf_mat(results, truth = my_obs, estimate = my_preds)
+  matrix_counts <- conf_matrix$table
+  tp <- matrix_counts[1, 1]
+  fp <- matrix_counts[1, 2]
+  fn <- matrix_counts[2, 1]
+  tn <- matrix_counts[2, 2]
+  accuracy <- (tp + tn) / sum(matrix_counts)
+  sensitivity <- tp / (tp + fn)
+  specificity <- tn / (tn + fp)
+  c(Accuracy = accuracy, Sensitivity = as.numeric(sensitivity), Specificity = as.numeric(specificity))
+}
+
+# Use map_dfr to apply the function to each split and get a data frame
+my_error_mat <- map_dfr(my_cv$splits, spam_tree_mod)
 
 # Calculate the mean for each column
 mean_metrics <- colMeans(my_error_mat)
