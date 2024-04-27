@@ -37,11 +37,6 @@ In this section, you should perform preliminary data exploration and analysis. T
 ******************************************
 
 ```{r}
-library(GGally)
-ggpairs(spam_train)
-```
-
-```{r}
 # Convert spam to a numerical variable to compute correlation matrix 
 spam_train$spam_num <- ifelse(spam_train$spam=="1", 1, 0)
 str(spam_train)
@@ -237,6 +232,8 @@ my_error_mat[,1] <- map_dbl(my_cv$splits, spam_logistic_mod)
 mean(my_error_mat[,1])
 ```
 ```{r}
+# SPECIFICITY MODEL 
+
 spam_logistic_mod <- function(split) {
   model <- glm(spam ~ .-spam_num, 
                data = analysis(split), family = "binomial")
@@ -267,12 +264,14 @@ mean_metrics
 ```
 
 ```{r}
+# SENSITIVITY MODEL 
+
 spam_logistic_mod <- function(split) {
-  model <- glm(spam ~ word_freq_our + word_freq_over + word_freq_remove + word_freq_you + word_freq_000+ char_freq_..3 + capital_run_length_longest+word_freq_hp+word_freq_receive+word_freq_business+word_freq_hp.1, 
+  model <- glm(spam ~ .-spam_num, 
                data = analysis(split), family = "binomial")
   test <- assessment(split)
   my_probs <- predict(model, newdata = test, type = "response")
-  my_preds <- ifelse(my_probs > 0.3, "1", "0")
+  my_preds <- ifelse(my_probs > 0.1, "1", "0")
   my_obs <- factor(test$spam, levels = c("0", "1"))
   my_preds <- factor(my_preds, levels = c("0", "1"))
   results <- data.frame(truth = my_obs, estimate = my_preds)
@@ -393,24 +392,23 @@ mean_metrics <- colMeans(my_error_mat)
 mean_metrics
 ```
 ```{r}
+# only -word_freq_will 0.9336359   0.9513631   0.9051629
+
+
 set.seed(12)
 library(randomForest)
 
 spam_rforest_mod <- function(split) {
-  model <- rpart(spam ~ .-spam_num,
+  model <- randomForest(spam ~ .-spam_num -word_freq_will -word_freq_parts,
                  data = analysis(split), 
                  ntree = 10, mtry = 5)
   test <- assessment(split)
   my_preds <- predict(model, test, type = "class")
-  results <- data.frame(obs = my_pdxTrees_test$Carbon_Sequestration_lb, preds = my_preds)
   my_obs <- factor(test$spam, levels = c("0", "1"))
-  my_preds <- predict(model, test, type = "class")
   my_preds <- factor(my_preds, levels = c("0", "1"))
-  my_probs <- predict(model, test, type = "prob")[,"spam"]
-  results <- data.frame(probs = my_probs,
-                        truth = my_obs,
+  results <- data.frame(truth = my_obs,
                         estimate = my_preds)
-  conf_matrix <- conf_mat(results, truth = my_obs, estimate = my_preds)
+  conf_matrix <- conf_mat(results, truth = truth, estimate = estimate)
   matrix_counts <- conf_matrix$table
   tp <- matrix_counts[1, 1]
   fp <- matrix_counts[1, 2]
@@ -423,13 +421,28 @@ spam_rforest_mod <- function(split) {
 }
 
 # Use map_dfr to apply the function to each split and get a data frame
-my_error_mat <- map_dfr(my_cv$splits, spam_tree_mod)
+my_error_mat <- map_dfr(my_cv$splits, spam_rforest_mod)
 
 # Calculate the mean for each column
 mean_metrics <- colMeans(my_error_mat)
 mean_metrics
 ```
-
+```{r}
+# Fit a logistic regression model on the training data to predict `high_mpg`
+spam_logistic_mod <- function(split){
+  model <- glm(spam ~.-spam_num -word_freq_will -word_freq_report, 
+               data = analysis(split), family = "binomial")
+  test = assessment(split)
+  my_probs <- predict(model, newdata = test, type = "response")
+  my_preds <- ifelse(my_probs > 0.5, "0","1")
+  my_obs <- test$spam
+  accuracy <- sum(my_obs == my_preds)/nrow(test)
+}
+  
+my_error_mat <- as.data.frame(matrix(NA, ncol = 1, nrow = 10))
+my_error_mat[,1] <- map_dbl(my_cv$splits, spam_logistic_mod)
+mean(my_error_mat[,1])
+```
 
 
 
