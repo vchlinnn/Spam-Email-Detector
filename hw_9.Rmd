@@ -536,7 +536,7 @@ best_spec_model <- randomForest(spam ~. -word_freq_will -word_freq_parts -word_f
                  ntree = 23, mtry = 10)
 
 # Make predictions on spam_eval data set 
-Linh_Vu_goal2 <- predict(best_spec_model, spam_eval)
+Linh_Vu_goal3 <- predict(best_spec_model, spam_eval)
 ```
 
 ******************************************
@@ -545,9 +545,9 @@ Linh_Vu_goal2 <- predict(best_spec_model, spam_eval)
 Once you have made predictions, remove the # symbol from the following lines of code, and replace `FirstName_LastName` with your actual first and last name. **Do not delete the letters .csv at the end of the file name inside the quotations.** Then run the code. This will save your data frames as .csv files in your repo. 
 
 ```{r}
-write.csv(Linh_Vu_goal1, "Linh_Vu_goal1.csv")
-write.csv(Linh_Vu_goal2, "Linh_Vu_goal2.csv")
-write.csv(Linh_Vu_goal3, "Linh_Vu_goal3.csv")
+#write.csv(Linh_Vu_goal1, "Linh_Vu_goal1.csv")
+#write.csv(Linh_Vu_goal2, "Linh_Vu_goal2.csv")
+#write.csv(Linh_Vu_goal3, "Linh_Vu_goal3.csv")
 ```
 
 *Be sure you commit and push these .csv files to the Github repo in addition to your .Rmd, as they are the predictions I will use to evaluate your model.*
@@ -557,9 +557,9 @@ write.csv(Linh_Vu_goal3, "Linh_Vu_goal3.csv")
 Discuss some limitations of your methods and your model. What are some ways you could improve your model if you had more **time**? Identify one variable **not** in the data set you feel could be an important predictor of `spam`. How confident are you in the accuracy of your model? 
 
 ******************************************
+One big limitation that given more time, I would definitely improve is the clarity of my code. The functions that I used to build models and compute their accuracy, sensitivity, and specificity are quite repetitive and complicated. It would be better to create a function that takes a model and a split as parameters. That way would saves much more lines of code. Also, I would create a heat map if possible to better visualize the variables and their relationships. 
+One variable not in the data set: the number of people recieved the email at the same time
 
-
-
-
+I am about 75% confident of the accuracy of my model. 
 
 ******************************************
