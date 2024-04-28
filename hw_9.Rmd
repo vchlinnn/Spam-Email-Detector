@@ -1,6 +1,6 @@
 ---
 title: "Homework 9"
-author: "Add Your Name Here"
+author: "Linh Vu"
 output: pdf_document
 ---
 
@@ -75,9 +75,66 @@ There is one special column of note:
 In this section, you should perform preliminary data exploration and analysis. This data set is a bit too large to do a full investigation of each variable, so select several variables you think may be useful (at least 6 for visualization purposes, but you may want to use many more for the actual model building). Create visualizations for each variable individually, along with visualizations showing the relationship between the variable and the response. Compute relevant summary statistics for each of your variables.
 
 ******************************************
+```{r}
+# Load the necessary libraries
+library(dplyr)
+library(ggplot2)
+```
 
 
+To perform preliminary data exploration and analysis, we will first look at the structure of the data set:
 
+```{r}
+str(spam_train)
+```
+The data contains 919 observations of 58 variables. Our response variable is a binary categorical variable whose levels encoded as "0" and "1". One noteworthy fact is that all of our predictors are numerical. Thus, I would want to create `spam_num`, which is the numerical version of my response variable to compute a correlation matrix among the variables. 
+
+```{r}
+# Convert spam to a numerical variable to compute correlation matrix 
+spam_train$spam_num <- ifelse(spam_train$spam=="1", 1, 0)
+
+# Compute correlation matrix and filter the predictors that have the strongest correlation with `spam_num` (which is > 0.25 in this case)
+correlation <- cor(spam_train[,-58], spam_train$spam_num)
+cor_dataframe <- data.frame(variable = rownames(correlation), cor = as.numeric(correlation))
+cor_dataframe %>% filter(abs(cor) > 0.25)
+```
+We would pay more attention to these predictors by creating data visualizations. I first noticed that some of these predictors have opposite correlation with the response, such as `word_freq_hp.1` (-0.2597231) and `word_freq_receive` (0.2563150), or `word_freq_hp` (-0.2651063) and `word_freq_business` (0.2670211). We can visualize this correlation through box plots: 
+
+```{r}
+# word_freq_hp is imbalanced towards spam 0
+ggplot(data=spam_train) + geom_boxplot(mapping= aes(x=spam, y=word_freq_hp))
+```
+```{r}
+# word_freq_business is imbalanced towards spam 1
+ggplot(data=spam_train) + geom_boxplot(mapping= aes(x=spam, y=word_freq_business))
+```
+These pairs of predictors might be helpful in classifying whether or not an email is a spam. Let's confirm this belief by visualizing each pairs of predictors with opposite correlation:
+
+```{r}
+# Scatterplot of word_freq_hp, word_freq_business, and spam coded as color 
+ggplot(spam_train, aes(x=word_freq_hp, y=word_freq_business)) +
+geom_point(aes(color=spam))
+```
+```{r}
+# Scatterplot of word_freq_hp.1, word_freq_receive, and spam coded as color 
+ggplot(spam_train, aes(x=word_freq_hp.1, y=word_freq_receive)) +
+geom_point(aes(color=spam))
+```
+By knowing the values of these predictors, we would gain much information about whether or not an email is a spam.
+
+We would want to avoid predictors with too imbalanced observations among their levels, as the model might become biased towards the more frequent levels. However, there are some predictors with slightly imbalanced observations yet different range for spam and not spam emails such as `word_freq_000` and `capital_run_length_longest`.
+
+```{r}
+# Box plot of spam and capital_run_length_longest 
+ggplot(data=spam_train) + geom_boxplot(mapping= aes(x=spam, y=capital_run_length_longest))
+```
+If the value of `capital_run_length_longest` is above 600 units, we would much more likely to classify it as a spam email.
+
+```{r}
+# Box plot of spam and word_freq_000
+ggplot(data=spam_train) + geom_boxplot(mapping= aes(x=spam, y=word_freq_000))
+```
+Likewise, if the value of `word_freq_000` is above 2, we would much more likely to classify it as a spam email.
 
 
 ******************************************
