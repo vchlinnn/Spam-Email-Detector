@@ -165,8 +165,6 @@ In this section, you should build a series of models (at least 5, but more is pr
   - Consider models using a variety of classification threshold (i.e. the value of $c$ in the rule "Predict $Y = 1$ if $P(Y = 1 | X ) > c$")
 
 
-
-
 ******************************************
 
 Before building models, I would want to create splits for cross validation. 
@@ -212,7 +210,7 @@ data.frame(k=1:30, knn_error) %>% ggplot(aes(x=k, y=knn_error)) + geom_line() + 
 ```
 k = 5 and k = 6 seems to work best at minimizing error. Since I would want to choose an odd k, I would go with k = 5. 
 
-Also, to maximize efficiency, I will perform building models and evaluate models simutaneously. This allows me to go back and forth between experiment with adding/omitting predictors and assessing accuracy, sensitivity, and specificity of the models. I would assess each model by calculate each split's accuracy, sensitivity, and specificity through their confidence matrix.
+Also, to maximize efficiency, I will perform building models and evaluate models simultaneously. This allows me to go back and forth between experiment with adding/omitting predictors and assessing accuracy, sensitivity, and specificity of the models. I would assess each model by calculate each split's accuracy, sensitivity, and specificity through their confidence matrix.
 
 ```{r}
 # My first model - using KNN
@@ -225,8 +223,8 @@ spam_knn_mod <- function(split){
                 kernel = "rectangular")
   test = assessment(split)
   my_preds <- model$fitted.values
-  my_obs <- factor(test$spam, levels = c("0", "1"))
-  my_preds <- factor(my_preds, levels = c("0", "1"))
+  my_obs <- factor(test$spam, levels = c("1", "0"))
+  my_preds <- factor(my_preds, levels = c("1", "0"))
   results <- data.frame(truth = my_obs, estimate = my_preds)
   conf_matrix <- conf_mat(results, truth = truth, estimate = estimate)
   matrix_counts <- conf_matrix$table
@@ -247,7 +245,7 @@ my_eval_mat <- map_dfr(my_cv$splits, spam_knn_mod)
 mean_metrics <- colMeans(my_eval_mat)
 mean_metrics
 ```
-The model seems to do pretty good with sensitivity, but not quite well with accuracy and specificity. 
+The model seems to do pretty good with specificity, but not quite well with accuracy and sensitivity. 
 
 After try adding some predictors, upon realizing that all predictors have quite a weak correlation with our response `spam`, we would need the information from many predictors to make valuable predictions. Thus, I would go with backward selection, first starting with all variables and then gradually omit those with weakest correlation while computing their accuracy, sensitivity, and specificity over cross validation. 
 
@@ -262,8 +260,8 @@ spam_logistic_mod <- function(split) {
   test <- assessment(split)
   my_probs <- predict(model, newdata = test, type = "response")
   my_preds <- ifelse(my_probs > 0.5, "1", "0")
-  my_obs <- factor(test$spam, levels = c("0", "1"))
-  my_preds <- factor(my_preds, levels = c("0", "1"))
+  my_obs <- factor(test$spam, levels = c("1", "0"))
+  my_preds <- factor(my_preds, levels = c("1", "0"))
   results <- data.frame(truth = my_obs, estimate = my_preds)
   conf_matrix <- conf_mat(results, truth = truth, estimate = estimate)
   matrix_counts <- conf_matrix$table
@@ -274,7 +272,7 @@ spam_logistic_mod <- function(split) {
   accuracy <- (tp + tn) / sum(matrix_counts)
   sensitivity <- tp / (tp + fn)
   specificity <- tn / (tn + fp)
-  c(Accuracy = 1 - accuracy, Sensitivity = 1 - as.numeric(sensitivity), Specificity = 1 - as.numeric(specificity))
+  c(Accuracy = accuracy, Sensitivity = as.numeric(sensitivity), Specificity = as.numeric(specificity))
 }
 
 # Use map_dfr to apply the function to each split and get a data frame
@@ -297,8 +295,8 @@ spam_logistic_mod <- function(split) {
   test <- assessment(split)
   my_probs <- predict(model, newdata = test, type = "response")
   my_preds <- ifelse(my_probs > 0.9, "1", "0")
-  my_obs <- factor(test$spam, levels = c("0", "1"))
-  my_preds <- factor(my_preds, levels = c("0", "1"))
+  my_obs <- factor(test$spam, levels = c("1", "0"))
+  my_preds <- factor(my_preds, levels = c("1", "0"))
   results <- data.frame(truth = my_obs, estimate = my_preds)
   conf_matrix <- conf_mat(results, truth = truth, estimate = estimate)
   matrix_counts <- conf_matrix$table
@@ -309,7 +307,7 @@ spam_logistic_mod <- function(split) {
   accuracy <- (tp + tn) / sum(matrix_counts)
   sensitivity <- tp / (tp + fn)
   specificity <- tn / (tn + fp)
-  c(Accuracy = 1 - accuracy, Sensitivity = 1 - as.numeric(sensitivity), Specificity = 1 - as.numeric(specificity))
+  c(Accuracy = accuracy, Sensitivity = as.numeric(sensitivity), Specificity = as.numeric(specificity))
 }
 
 # Use map_dfr to apply the function to each split and get a data frame
@@ -329,8 +327,8 @@ spam_logistic_mod <- function(split) {
   test <- assessment(split)
   my_probs <- predict(model, newdata = test, type = "response")
   my_preds <- ifelse(my_probs > 0.1, "1", "0")
-  my_obs <- factor(test$spam, levels = c("0", "1"))
-  my_preds <- factor(my_preds, levels = c("0", "1"))
+  my_obs <- factor(test$spam, levels = c("1", "0"))
+  my_preds <- factor(my_preds, levels = c("1", "0"))
   results <- data.frame(truth = my_obs, estimate = my_preds)
   conf_matrix <- conf_mat(results, truth = truth, estimate = estimate)
   matrix_counts <- conf_matrix$table
@@ -341,7 +339,7 @@ spam_logistic_mod <- function(split) {
   accuracy <- (tp + tn) / sum(matrix_counts)
   sensitivity <- tp / (tp + fn)
   specificity <- tn / (tn + fp)
-  c(Accuracy = 1 - accuracy, Sensitivity = 1 - as.numeric(sensitivity), Specificity = 1 - as.numeric(specificity))
+  c(Accuracy = accuracy, Sensitivity = as.numeric(sensitivity), Specificity = as.numeric(specificity))
 }
 
 # Use map_dfr to apply the function to each split and get a data frame
@@ -362,8 +360,8 @@ spam_naive_mod <- function(split) {
   test <- assessment(split)
   my_preds <- predict(model, test)
   my_probs <- predict(model, test, type = "raw")
-  my_obs <- factor(test$spam, levels = c("0", "1"))
-  my_preds <- factor(my_preds, levels = c("0", "1"))
+  my_obs <- factor(test$spam, levels = c("1", "0"))
+  my_preds <- factor(my_preds, levels = c("1", "0"))
   results <- data.frame(truth = my_obs, estimate = my_preds)
   conf_matrix <- conf_mat(results, truth = truth, estimate = estimate)
   matrix_counts <- conf_matrix$table
@@ -384,7 +382,7 @@ my_error_mat <- map_dfr(my_cv$splits, spam_naive_mod)
 mean_metrics <- colMeans(my_error_mat)
 mean_metrics
 ```
-As expected, naive bayes does not perform well with this selection of predictors, though specificity is surprisingly good. Thus, we would want to reduce the number of predictors. Let's try using our pairs of predictors above.
+As expected, naive bayes does not perform well with this selection of predictors, though sensitivity is surprisingly good. Thus, we would want to reduce the number of predictors. Let's try using our pairs of predictors above.
 
 ```{r}
 # My sixth model - using naive bayes 
@@ -395,8 +393,8 @@ spam_naive_mod <- function(split) {
   test <- assessment(split)
   my_preds <- predict(model, test)
   my_probs <- predict(model, test, type = "raw")
-  my_obs <- factor(test$spam, levels = c("0", "1"))
-  my_preds <- factor(my_preds, levels = c("0", "1"))
+  my_obs <- factor(test$spam, levels = c("1", "0"))
+  my_preds <- factor(my_preds, levels = c("1", "0"))
   results <- data.frame(truth = my_obs, estimate = my_preds)
   conf_matrix <- conf_mat(results, truth = truth, estimate = estimate)
   matrix_counts <- conf_matrix$table
@@ -417,60 +415,24 @@ my_error_mat <- map_dfr(my_cv$splits, spam_naive_mod)
 mean_metrics <- colMeans(my_error_mat)
 mean_metrics
 ```
-Specificity is extremely high in this case, but our accuracy is not maintained. So we would not go with this model.
+Sensitivity is extremely high in this case, but our accuracy is not maintained. So we would not go with this model.
 
-Since I want to improve my accuracy, I would test with random forest model. After experimenting with backward selection and dropping variables with weak correlation, along with modifying the number of trees and the number of predictors for each tree, I find two models with highest sensitivity and highest accuracy.
+Since I want to improve my accuracy, I would test with random forest model. After experimenting with backward selection and dropping variables with weak correlation, along with modifying the number of trees and the number of predictors for each tree, I find a model that achieves the dual goal of highest specificity and highest accuracy.
 
 ```{r}
-# HIGHEST SENSITIVITY
 # My seventh model - using random forest 
-
-set.seed(12)
-
-spam_rforest_mod <- function(split) {
-  model <- randomForest(spam ~ .-spam -spam_num -word_freq_parts -word_freq_will -word_freq_table -char_freq_..5 -word_freq_report,
-                 data = analysis(split), 
-                 ntree = 20, mtry = 10)
-  test <- assessment(split)
-  my_preds <- predict(model, test, type = "class")
-  my_obs <- factor(test$spam, levels = c("0", "1"))
-  my_preds <- factor(my_preds, levels = c("0", "1"))
-  results <- data.frame(truth = my_obs,
-                        estimate = my_preds)
-  conf_matrix <- conf_mat(results, truth = truth, estimate = estimate)
-  matrix_counts <- conf_matrix$table
-  tp <- matrix_counts[1, 1]
-  fp <- matrix_counts[1, 2]
-  fn <- matrix_counts[2, 1]
-  tn <- matrix_counts[2, 2]
-  accuracy <- (tp + tn) / sum(matrix_counts)
-  sensitivity <- tp / (tp + fn)
-  specificity <- tn / (tn + fp)
-  c(Accuracy = accuracy, Sensitivity = as.numeric(sensitivity), Specificity = as.numeric(specificity))
-}
-
-# Use map_dfr to apply the function to each split and get a data frame
-my_error_mat <- map_dfr(my_cv$splits, spam_rforest_mod)
-
-# Calculate the mean for each column
-mean_metrics <- colMeans(my_error_mat)
-mean_metrics
-```
-```{r}
-# HIGHEST ACCURACY
-# My eighth model - using random forest 
 
 set.seed(12)
 library(randomForest)
 
 spam_rforest_mod <- function(split) {
-  model <- randomForest(spam ~ .-spam_num -word_freq_will -word_freq_parts -word_freq_address -word_freq_3d -word_freq_mail -word_freq_people -word_freq_report -word_freq_addresses,
+  model <- randomForest(spam ~ . -spam_num -word_freq_will -word_freq_parts -word_freq_address -word_freq_3d -word_freq_mail -word_freq_people -word_freq_report -word_freq_addresses,
                  data = analysis(split), 
-                 ntree = 20, mtry = 10)
+                 ntree = 23, mtry = 10)
   test <- assessment(split)
   my_preds <- predict(model, test, type = "class")
-  my_obs <- factor(test$spam, levels = c("0", "1"))
-  my_preds <- factor(my_preds, levels = c("0", "1"))
+  my_obs <- factor(test$spam, levels = c("1", "0"))
+  my_preds <- factor(my_preds, levels = c("1", "0"))
   results <- data.frame(truth = my_obs,
                         estimate = my_preds)
   conf_matrix <- conf_mat(results, truth = truth, estimate = estimate)
@@ -508,8 +470,7 @@ In this section, evaluate model performance using a variety of metrics. Which mo
 
 ******************************************
 
-
-
+I performed model building and model selection simultaneously as mentioned above. 
 
 
 ******************************************
@@ -533,7 +494,6 @@ spam_eval <-read.csv("spam_eval.csv")
 ```
 
 
-
 Use your 3 models to make 3 sets of predictions on `spam_eval`:
 
 1. Make predictions using the model that best achieves goal 1. Save your predictions as the data frame called `FirstName_LastName_goal1`
@@ -546,21 +506,48 @@ Use your 3 models to make 3 sets of predictions on `spam_eval`:
 
 ******************************************
 
+1. Model with best accuracy:
 
+```{r}
+best_acc_model <- randomForest(spam ~. -word_freq_will -word_freq_parts -word_freq_address -word_freq_3d -word_freq_mail -word_freq_people -word_freq_report -word_freq_addresses,
+                 data = spam_train[,-59], 
+                 ntree = 23, mtry = 10)
 
+# Make predictions on spam_eval data set 
+Linh_Vu_goal1 <- predict(best_acc_model, spam_eval)
+```
 
+2. Model with best sensitivity:
+
+```{r}
+best_sense_model <- glm(spam ~ ., 
+                       data = spam_train[,-59], family = "binomial")
+
+# Make predictions on spam_eval data set 
+Linh_Vu_goal2_probs <- predict(best_sense_model, spam_eval, type = "response")
+Linh_Vu_goal2 <- as.factor(ifelse(Linh_Vu_goal2_probs > 0.1, "1", "0"))
+```
+
+3. Model with best specificity:
+
+```{r}
+best_spec_model <- randomForest(spam ~. -word_freq_will -word_freq_parts -word_freq_address -word_freq_3d -word_freq_mail -word_freq_people -word_freq_report -word_freq_addresses,
+                 data = spam_train[,-59], 
+                 ntree = 23, mtry = 10)
+
+# Make predictions on spam_eval data set 
+Linh_Vu_goal2 <- predict(best_spec_model, spam_eval)
+```
 
 ******************************************
-
-
 
 
 Once you have made predictions, remove the # symbol from the following lines of code, and replace `FirstName_LastName` with your actual first and last name. **Do not delete the letters .csv at the end of the file name inside the quotations.** Then run the code. This will save your data frames as .csv files in your repo. 
 
 ```{r}
-# write.csv(FirstName_LastName_goal1, "FirstName_LastName_goal1.csv", row_names = F)
-# write.csv(FirstName_LastName_goal2, "FirstName_LastName_goal2.csv", row_names = F)
-# write.csv(FirstName_LastName_goal3, "FirstName_LastName_goal3.csv", row_names = F)
+write.csv(Linh_Vu_goal1, "Linh_Vu_goal1.csv")
+write.csv(Linh_Vu_goal2, "Linh_Vu_goal2.csv")
+write.csv(Linh_Vu_goal3, "Linh_Vu_goal3.csv")
 ```
 
 *Be sure you commit and push these .csv files to the Github repo in addition to your .Rmd, as they are the predictions I will use to evaluate your model.*
